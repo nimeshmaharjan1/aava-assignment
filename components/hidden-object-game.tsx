@@ -26,105 +26,13 @@ import {
   Trophy,
   BookOpen,
   Layers,
+  Settings,
 } from "lucide-react";
-
-const objects = [
-  {
-    id: "approval",
-    name: "Taylor Swift",
-    clue: `Swift by name and swift in fame,
-She turns life's pages into song and name,
-From moments lived, she weaves her art,
-Echoes of life in every part.`,
-    x: 12,
-    y: 35,
-    modulePath: "/objects/dummy-find.html",
-  },
-  {
-    id: "compass",
-    name: "Magnetic Compass",
-    clue: `When seas were vast and maps were few,
-A silent guide would point what's true.
-No voice it speaks, yet shows the way,
-Find the needle that will never stray.`,
-    x: 32,
-    y: 58,
-    modulePath: "/objects/module1.html",
-  },
-  {
-    id: "bluetooth",
-    name: "Bluetooth",
-    clue: `A Viking King's mark in a world without thread,
-Binds the silent air where invisible signals are spread.
-No silver wire nor iron chain, yet it links to the brain,
-Seek the azure rune where the ghost-signals remain.`,
-    x: 10,
-    y: 54,
-    modulePath: "/objects/module2.html",
-  },
-  {
-    id: "internet",
-    name: "Internet (Router)",
-    clue: `A web is spun, yet no spider is near,
-Messages travel both far and near.
-Born in sixty-nine across the sea,
-Find the network connecting you and me.`,
-    x: 72,
-    y: 12,
-    modulePath: "/objects/module3 copy.html",
-  },
-  {
-    id: "zero",
-    name: "Zero",
-    clue: `Born from nothing, yet shaping it all,
-A silent symbol that answers the call.
-In circles I live, both empty and whole,
-Find me where numbers begin their role.`,
-    x: 20,
-    y: 84,
-    modulePath: "/objects/module4_gazette.html",
-  },
-  {
-    id: "penicillin",
-    name: "Penicillium",
-    clue: `From humble mold, a quiet fight grew,
-An unseen hero the world never knew.
-It wages war where sickness may dwell,
-A tiny savior with stories to tell.`,
-    x: 76,
-    y: 86,
-  },
-  {
-    id: "lightbulb",
-    name: "Light Bulb",
-    clue: `When darkness ruled the evening hour,
-I brought the gift of glowing power.
-A filament aglow with might,
-I turned the night into the light.`,
-    x: 47,
-    y: 20,
-  },
-  {
-    id: "automobile",
-    name: "Automobile",
-    clue: `Before my time, the horse was king,
-But iron and steel changed everything.
-Four wheels roll where hooves once tread,
-A horseless carriage forging ahead.`,
-    x: 58,
-    y: 52,
-  },
-  {
-    id: "globe",
-    name: "Globe",
-    clue: `A silver wanderer maps the Earth,
-Showing lands of every birth.
-Spin me round to see it all,
-A world entire within a ball.`,
-    x: 92,
-    y: 39,
-  },
-];
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { gameObjects, type GameObject } from "@/lib/game-objects";
+import { DEFAULT_SETTINGS, getSettings } from "@/lib/game-config";
+import Link from "next/link";
 
 export default function HiddenObjectGame() {
   const [current, setCurrent] = useState(0);
@@ -133,117 +41,189 @@ export default function HiddenObjectGame() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [foundIds, setFoundIds] = useState<string[]>([]);
+  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [isSummaryReady, setIsSummaryReady] = useState(false);
+  const [lastScoreChange, setLastScoreChange] = useState<{
+    value: number;
+    id: number;
+  } | null>(null);
+  const [config, setConfig] = useState<typeof DEFAULT_SETTINGS>(DEFAULT_SETTINGS);
+
+  useEffect(() => {
+    setConfig(getSettings());
+  }, []);
+
+  const activeObjects = isDemoMode
+    ? gameObjects.filter((obj) => obj.isDemo)
+    : gameObjects.filter((obj) => !obj.isDemo);
+
+  // Reset game when mode changes
+  useEffect(() => {
+    setCurrent(0);
+    setScore(0);
+    setFoundIds([]);
+    setMessage("");
+    setIsSummaryReady(false);
+  }, [isDemoMode]);
 
   const handleClick = (obj: any) => {
-    const target = objects[current];
+    const target = activeObjects[current];
 
     if (obj.id === target.id) {
       if (!foundIds.includes(obj.id)) {
-        setScore((prev) => prev + 10);
+        setScore((prev) => prev + config.pointsPerFind);
+        setLastScoreChange({ value: config.pointsPerFind, id: Date.now() });
         setFoundIds((prev) => [...prev, obj.id]);
         setMessage(
-          `Success! You found the ${obj.id === "approval" ? "song" : obj.name}`,
+          `Success! You found the ${obj.id === "alchemy" ? "song" : obj.name}`,
         );
 
         if (obj.modulePath) {
           setSelectedModule(obj.modulePath);
-          setTimeout(() => setIsModalOpen(true), 1400);
+          setTimeout(() => setIsModalOpen(true), config.timeoutModalOpenDelay);
         }
 
         setTimeout(() => {
           setMessage("");
+          setLastScoreChange(null);
           setCurrent((prev) => prev + 1);
-        }, 1800);
+        }, config.timeoutSuccessAlert);
       }
     } else {
-      setScore((prev) => Math.max(0, prev - 5));
+      setScore((prev) => Math.max(0, prev + config.pointsPenaltyMiss));
+      setLastScoreChange({ value: config.pointsPenaltyMiss, id: Date.now() });
       setMessage("Search elsewhere...");
-      setTimeout(() => setMessage(""), 1200);
+      setTimeout(() => {
+        setMessage("");
+        setLastScoreChange(null);
+      }, config.timeoutErrorAlert);
     }
   };
 
-  if (current >= objects.length) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1115] text-amber-50 p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-amber-900/10 via-transparent to-transparent opacity-50" />
-        <div className="relative text-center p-12 rounded-4xl bg-stone-900/80 border-2 border-amber-500/20 backdrop-blur-xl shadow-[0_0_50px_-12px_rgba(251,191,36,0.3)] max-w-md w-full animate-in fade-in zoom-in duration-500">
-          <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/30">
-            <Trophy className="w-10 h-10 text-amber-500" />
-          </div>
-          <h1 className="text-5xl font-serif font-bold mb-2 text-transparent bg-clip-text bg-linear-to-r from-amber-200 via-amber-400 to-amber-200">
-            Mission Complete
-          </h1>
-          <p className="text-stone-400 mb-8 font-medium">
-            Your archaeological persistence has paid off.
-          </p>
-
-          <div className="bg-stone-900/60 border border-white/5 rounded-3xl p-8 mb-8 backdrop-blur-xl">
-            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-[0.3em] mb-4">
-              Historical Archive Accuracy
-            </p>
-            <div className="flex items-baseline justify-center gap-2">
-              <span className="text-7xl font-mono font-bold text-white tracking-tighter">
-                {score}
-              </span>
-              <span className="text-xl text-stone-500 font-medium">pts</span>
-            </div>
-          </div>
-
-          <Button
-            onClick={() => {
-              setCurrent(0);
-              setScore(0);
-              setFoundIds([]);
-            }}
-            size="lg"
-            className="w-full h-14 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-lg shadow-[0_20px_40px_-15px_rgba(217,119,6,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <RefreshCw className="mr-2 h-5 w-5" />
-            Restart Expedition
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#0f1115] text-stone-200 font-sans selection:bg-amber-500/30">
-      {/* Immersive Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-[0.03]" />
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-900/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/10 blur-[120px] rounded-full" />
-      </div>
+      {isSummaryReady ? (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1115] text-amber-50 p-6">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-amber-900/10 via-transparent to-transparent opacity-50" />
+          <div className="relative text-center p-12 rounded-4xl bg-stone-900/80 border-2 border-amber-500/20 backdrop-blur-xl shadow-[0_0_50px_-12px_rgba(251,191,36,0.3)] max-w-md w-full animate-in fade-in zoom-in duration-500">
+            <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/30">
+              <Trophy className="w-10 h-10 text-amber-500" />
+            </div>
+            <h1 className="text-5xl font-serif font-bold mb-2 text-transparent bg-clip-text bg-linear-to-r from-amber-200 via-amber-400 to-amber-200">
+              Mission Complete
+            </h1>
+            <p className="text-stone-400 mb-8 font-medium">
+              Your archaeological persistence has paid off.
+            </p>
 
-      <div className="relative z-10 p-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="bg-stone-900/60 border border-white/5 rounded-3xl p-8 mb-8 backdrop-blur-xl">
+              <p className="text-[10px] text-amber-500 font-bold uppercase tracking-[0.3em] mb-4">
+                Historical Archive Accuracy
+              </p>
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-7xl font-mono font-bold text-white tracking-tighter">
+                  {score}
+                </span>
+                <span className="text-xl text-stone-500 font-medium">pts</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                setCurrent(0);
+                setScore(0);
+                setFoundIds([]);
+                setIsSummaryReady(false);
+              }}
+              size="lg"
+              className="w-full h-14 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-lg shadow-[0_20px_40px_-15px_rgba(217,119,6,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <RefreshCw className="mr-2 h-5 w-5" />
+              Restart Expedition
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Immersive Background */}
+          <div className="fixed inset-0 pointer-events-none">
+            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-[0.03]" />
+            <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-900/10 blur-[120px] rounded-full" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/10 blur-[120px] rounded-full" />
+          </div>
+
+          <div className="relative z-10 p-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: UI & Controls */}
         <div className="lg:col-span-4 flex flex-col gap-6">
-          <header className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-widest">
-              <Compass className="w-3 h-3" />
-              Research Phase I
+          <header className="space-y-6">
+            <div className="flex flex-col gap-4">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 w-fit rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-widest leading-none">
+                <Compass className="w-3.5 h-3.5" />
+                Archaeological Research Phase I
+              </div>
             </div>
-            <h1 className="text-4xl xl:text-5xl font-serif font-bold text-white tracking-tight leading-tight">
-              The Inventor's{" "}
-              <span className="text-amber-500 italic">Workshop</span>
-            </h1>
-            <p className="text-stone-500 font-medium">
-              Uncover the catalysts of modern civilization.
-            </p>
+            <div className="space-y-2">
+              <h1 className="text-4xl xl:text-5xl font-serif font-bold text-white tracking-tight leading-tight">
+                The Inventor's{" "}
+                <span className="text-amber-500 italic">Workshop</span>
+              </h1>
+              <p className="text-stone-500 font-medium">
+                Uncover the catalysts of modern civilization.
+              </p>
+            </div>
           </header>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-stone-900/60 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-between group overflow-hidden relative transition-all hover:border-amber-500/20">
-              <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                <Target className="w-20 h-20" />
-              </div>
-              <span className="text-[10px] font-bold text-amber-500/60 uppercase tracking-widest mb-1">
-                Expedition Score
-              </span>
-              <span className="text-4xl font-mono font-bold text-white tracking-tighter">
-                {score}
-              </span>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="bg-stone-900/60 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-between group overflow-hidden relative transition-all hover:border-amber-500/20 cursor-help">
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                      <Target className="w-20 h-20" />
+                    </div>
+                    <div className="flex items-center justify-between pointer-events-none">
+                      <span className="text-[10px] font-bold text-amber-500/60 uppercase tracking-widest mb-1">
+                        Expedition Score
+                      </span>
+                      {lastScoreChange && (
+                        <span
+                          className={`text-sm font-bold animate-in fade-in slide-in-from-bottom-2 duration-500 ${lastScoreChange.value > 0 ? "text-emerald-500" : "text-red-500"}`}
+                        >
+                          {lastScoreChange.value > 0
+                            ? `+${lastScoreChange.value}`
+                            : lastScoreChange.value}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-4xl font-mono font-bold text-white tracking-tighter">
+                      {score}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-stone-950 border-white/10 text-stone-400 p-4 max-w-xs space-y-2">
+                  <p className="font-bold text-white">Scoring System:</p>
+                  <ul className="text-xs space-y-1">
+                    <li className="flex justify-between">
+                      <span>Find Item:</span>{" "}
+                      <span className="text-emerald-500">
+                        +{config.pointsPerFind} pts
+                      </span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Misclick:</span>{" "}
+                      <span className="text-red-500">
+                        {config.pointsPenaltyMiss} pts
+                      </span>
+                    </li>
+                  </ul>
+                  <p className="text-[10px] italic">
+                    Higher scores represent greater archaeological precision.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <div className="bg-stone-900/60 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-between group overflow-hidden relative transition-all hover:border-amber-500/20">
               <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
                 <Layers className="w-20 h-20" />
@@ -252,9 +232,9 @@ export default function HiddenObjectGame() {
                 Discoveries
               </span>
               <span className="text-4xl font-mono font-bold text-white tracking-tighter">
-                {current + 1}
+                {foundIds.length}
                 <span className="text-stone-600 text-xl mx-0.5">/</span>
-                {objects.length}
+                {activeObjects.length}
               </span>
             </div>
           </div>
@@ -269,7 +249,7 @@ export default function HiddenObjectGame() {
                 </span>
               </div>
               <p className="text-2xl text-stone-100 leading-snug font-serif italic selection:bg-amber-500/40">
-                &ldquo;{objects[current].clue}&rdquo;
+                &ldquo;{activeObjects[current]?.clue || activeObjects[current - 1]?.clue || "Exploring..."}&rdquo;
               </p>
             </CardContent>
           </Card>
@@ -284,7 +264,43 @@ export default function HiddenObjectGame() {
         </div>
 
         {/* Right Column: Game Board */}
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 flex flex-col gap-5">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] font-sans">
+                Exploration Viewport
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link href="/admin">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-9 h-9 rounded-full border border-white/5 bg-stone-900/40 text-stone-500 hover:text-amber-500 hover:bg-stone-900/60 transition-all active:scale-95"
+                >
+                  <Settings className="w-4.5 h-4.5" />
+                </Button>
+              </Link>
+
+              <div className="flex items-center space-x-3 bg-stone-900/60 p-1.5 pl-4 rounded-full border border-white/5 backdrop-blur-md shadow-lg border-2">
+                <Label
+                  htmlFor="mode-toggle-board"
+                  className="text-[10px] uppercase tracking-widest font-bold text-stone-400 cursor-pointer"
+                >
+                  {isDemoMode ? "Expedition Demo" : "Final Presentation"}
+                </Label>
+                <Switch
+                  id="mode-toggle-board"
+                  checked={!isDemoMode}
+                  onCheckedChange={(checked) => setIsDemoMode(!checked)}
+                  className="data-[state=checked]:bg-emerald-500 scale-75"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="relative group/board">
             <div className="absolute -inset-4 bg-linear-to-br from-amber-500/5 to-blue-500/5 rounded-[2.5rem] blur-2xl opacity-50 group-hover/board:opacity-100 transition-opacity duration-700" />
 
@@ -298,14 +314,14 @@ export default function HiddenObjectGame() {
 
               <TooltipProvider>
                 <div className="absolute inset-0">
-                  {objects.map((obj) => (
+                  {activeObjects.map((obj) => (
                     <Tooltip key={obj.id}>
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => handleClick(obj)}
                           disabled={
                             foundIds.includes(obj.id) &&
-                            obj.id !== objects[current].id
+                            obj.id !== activeObjects[current]?.id
                           }
                           className={`absolute w-16 h-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all duration-300 flex items-center justify-center
                             ${
@@ -351,6 +367,23 @@ export default function HiddenObjectGame() {
                         <Target className="w-12 h-12 text-red-400 drop-shadow-[0_0_15px_rgba(248,113,113,0.5)]" />
                       )}
                     </div>
+
+                    {lastScoreChange && (
+                      <div
+                        className={`px-4 py-1.5 rounded-full border text-xs font-black tracking-[0.2em] transform -rotate-2 shadow-sm animate-in zoom-in duration-300
+                        ${
+                          lastScoreChange.value > 0
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                            : "bg-red-500/20 border-red-500/50 text-red-400"
+                        }`}
+                      >
+                        {lastScoreChange.value > 0
+                          ? `+${lastScoreChange.value}`
+                          : lastScoreChange.value}{" "}
+                        POINTS
+                      </div>
+                    )}
+
                     <span className="text-2xl font-serif font-bold tracking-widest uppercase italic text-center drop-shadow-md">
                       {message}
                     </span>
@@ -360,7 +393,7 @@ export default function HiddenObjectGame() {
             </div>
 
             <div className="mt-12 flex flex-wrap gap-3 justify-center">
-              {objects.map((obj, i) => (
+              {activeObjects.map((obj, i) => (
                 <Badge
                   key={obj.id}
                   variant={foundIds.includes(obj.id) ? "default" : "outline"}
@@ -377,12 +410,14 @@ export default function HiddenObjectGame() {
                 </Badge>
               ))}
             </div>
+            </div>
           </div>
         </div>
-      </div>
+    </>
+  )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-[calc(100%-4rem)] sm:max-w-150! md:max-w-200! xl:max-w-300! sm:w-full p-0 overflow-hidden bg-background border border-border shadow-lg rounded-xl">
+        <DialogContent className="max-w-[calc(100%-4rem)] sm:max-w-150! md:max-w-200! xl:max-w-300! sm:w-full p-0 overflow-hidden bg-background border border-border shadow-lg rounded-xl gap-0">
           <DialogHeader className="relative z-10 p-4 border-b border-border bg-muted/50 flex flex-row items-center justify-between backdrop-blur-sm">
             <DialogTitle className="text-xl font-bold flex items-center gap-3">
               <div className="p-2 bg-primary rounded-lg">
@@ -399,6 +434,8 @@ export default function HiddenObjectGame() {
                   src={selectedModule}
                   className="w-full h-full border-none"
                   title="Innovation Gazette Content"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
                 />
               )}
             </div>
@@ -409,7 +446,12 @@ export default function HiddenObjectGame() {
                 Innovation Gazette
               </div>
               <Button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  if (current >= activeObjects.length) {
+                    setTimeout(() => setIsSummaryReady(true), config.timeoutGameOverDelay);
+                  }
+                }}
                 className="px-8 h-10 rounded-lg"
               >
                 Close Archive

@@ -304,7 +304,7 @@ export default function HiddenObjectGame() {
           <div className="relative group/board">
             <div className="absolute -inset-4 bg-linear-to-br from-amber-500/5 to-blue-500/5 rounded-[2.5rem] blur-2xl opacity-50 group-hover/board:opacity-100 transition-opacity duration-700" />
 
-            <div className="relative aspect-4/3 w-full rounded-4xl overflow-hidden border-12 border-stone-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8)] bg-stone-900 group/board-inner">
+            <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-12 border-stone-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8)] bg-stone-900 group/board-inner">
               <img
                 src="/game-image.png"
                 alt="Workshop View"

@@ -18,6 +18,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
+import AudioManager, { type AudioSettings } from "@/lib/audio-manager";
+import {
   Newspaper,
   Compass,
   Target,
@@ -27,6 +34,9 @@ import {
   BookOpen,
   Layers,
   Settings,
+  Volume2,
+  VolumeX,
+  Music,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -48,10 +58,41 @@ export default function HiddenObjectGame() {
     id: number;
   } | null>(null);
   const [config, setConfig] = useState<typeof DEFAULT_SETTINGS>(DEFAULT_SETTINGS);
+  const [audioSettings, setAudioSettings] = useState<AudioSettings | null>(null);
 
   useEffect(() => {
     setConfig(getSettings());
   }, []);
+
+  // Initialize AudioManager
+  useEffect(() => {
+    const audio = AudioManager.getInstance();
+    audio.init("/sounds/bgm.mp3");
+    setAudioSettings(audio.getSettings());
+
+    const handleFirstInteraction = () => {
+      audio.playBgm();
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    };
+
+    document.addEventListener("click", handleFirstInteraction);
+    document.addEventListener("keydown", handleFirstInteraction);
+
+    return () => {
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    };
+  }, []);
+
+  // Trigger Victory sound effect when summary screen shows
+  useEffect(() => {
+    if (isSummaryReady) {
+      const audio = AudioManager.getInstance();
+      audio.fadeBgm(0, 1000);
+      audio.playSfx("/sounds/victory.mp3");
+    }
+  }, [isSummaryReady]);
 
   const activeObjects = isDemoMode
     ? gameObjects.filter((obj) => obj.isDemo)
@@ -64,13 +105,22 @@ export default function HiddenObjectGame() {
     setFoundIds([]);
     setMessage("");
     setIsSummaryReady(false);
+
+    // Restore BGM if it was faded out
+    const audio = AudioManager.getInstance();
+    if (audio.playBgm) {
+      audio.setBgmVolume(audio.getSettings().bgmVolume);
+      audio.playBgm();
+    }
   }, [isDemoMode]);
 
   const handleClick = (obj: any) => {
     const target = activeObjects[current];
+    const audio = AudioManager.getInstance();
 
     if (obj.id === target.id) {
       if (!foundIds.includes(obj.id)) {
+        audio.playSfx("/sounds/success.mp3");
         setScore((prev) => prev + config.pointsPerFind);
         setLastScoreChange({ value: config.pointsPerFind, id: Date.now() });
         setFoundIds((prev) => [...prev, obj.id]);
@@ -90,6 +140,7 @@ export default function HiddenObjectGame() {
         }, config.timeoutSuccessAlert);
       }
     } else {
+      audio.playSfx("/sounds/failure.mp3");
       setScore((prev) => Math.max(0, prev + config.pointsPenaltyMiss));
       setLastScoreChange({ value: config.pointsPenaltyMiss, id: Date.now() });
       setMessage("Search elsewhere...");
@@ -135,6 +186,9 @@ export default function HiddenObjectGame() {
                 setScore(0);
                 setFoundIds([]);
                 setIsSummaryReady(false);
+                const audio = AudioManager.getInstance();
+                audio.setBgmVolume(audio.getSettings().bgmVolume);
+                audio.playBgm();
               }}
               size="lg"
               className="w-full h-14 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-lg shadow-[0_20px_40px_-15px_rgba(217,119,6,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -283,6 +337,102 @@ export default function HiddenObjectGame() {
                   <Settings className="w-4.5 h-4.5" />
                 </Button>
               </Link>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-9 h-9 rounded-full border border-white/5 bg-stone-900/40 text-stone-500 hover:text-amber-500 hover:bg-stone-900/60 transition-all active:scale-95 relative"
+                  >
+                    {audioSettings?.bgmMuted && audioSettings?.sfxMuted ? (
+                      <VolumeX className="w-4.5 h-4.5" />
+                    ) : (
+                      <Volume2 className="w-4.5 h-4.5" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 bg-stone-950/95 border-white/10 text-stone-200 p-6 rounded-2xl shadow-2xl backdrop-blur-xl z-50">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <h4 className="font-serif font-bold text-lg text-amber-500">Audio Workshop</h4>
+                      <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Controls</span>
+                    </div>
+                    
+                    {/* BGM Row */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Music className="w-4 h-4 text-amber-500" />
+                          <span className="text-xs font-bold text-stone-300">Ambient Music</span>
+                        </div>
+                        <Switch
+                          checked={!audioSettings?.bgmMuted}
+                          onCheckedChange={() => {
+                            const audio = AudioManager.getInstance();
+                            audio.toggleBgmMute();
+                            setAudioSettings(audio.getSettings());
+                            audio.playSfx("/sounds/success.mp3");
+                          }}
+                          className="scale-75 data-[state=checked]:bg-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <VolumeX className="w-3.5 h-3.5 text-stone-600" />
+                        <Slider
+                          value={[audioSettings?.bgmVolume ? audioSettings.bgmVolume * 100 : 0]}
+                          max={100}
+                          step={1}
+                          onValueChange={(val) => {
+                            const audio = AudioManager.getInstance();
+                            audio.setBgmVolume(val[0] / 100);
+                            setAudioSettings(audio.getSettings());
+                          }}
+                          disabled={audioSettings?.bgmMuted}
+                          className="flex-1 [&_[data-slot=slider-range]]:bg-amber-500 [&_[data-slot=slider-thumb]]:bg-amber-500 [&_[data-slot=slider-thumb]]:border-amber-400"
+                        />
+                        <Volume2 className="w-3.5 h-3.5 text-stone-400" />
+                      </div>
+                    </div>
+
+                    {/* SFX Row */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Volume2 className="w-4 h-4 text-amber-500" />
+                          <span className="text-xs font-bold text-stone-300">Sound Effects</span>
+                        </div>
+                        <Switch
+                          checked={!audioSettings?.sfxMuted}
+                          onCheckedChange={() => {
+                            const audio = AudioManager.getInstance();
+                            audio.toggleSfxMute();
+                            setAudioSettings(audio.getSettings());
+                            audio.playSfx("/sounds/success.mp3");
+                          }}
+                          className="scale-75 data-[state=checked]:bg-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <VolumeX className="w-3.5 h-3.5 text-stone-600" />
+                        <Slider
+                          value={[audioSettings?.sfxVolume ? audioSettings.sfxVolume * 100 : 0]}
+                          max={100}
+                          step={1}
+                          onValueChange={(val) => {
+                            const audio = AudioManager.getInstance();
+                            audio.setSfxVolume(val[0] / 100);
+                            setAudioSettings(audio.getSettings());
+                          }}
+                          disabled={audioSettings?.sfxMuted}
+                          className="flex-1 [&_[data-slot=slider-range]]:bg-amber-500 [&_[data-slot=slider-thumb]]:bg-amber-500 [&_[data-slot=slider-thumb]]:border-amber-400"
+                        />
+                        <Volume2 className="w-3.5 h-3.5 text-stone-400" />
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               <div className="flex items-center space-x-3 bg-stone-900/60 p-1.5 pl-4 rounded-full border border-white/5 backdrop-blur-md shadow-lg border-2">
                 <Label
